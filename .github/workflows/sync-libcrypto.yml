@@ -1,0 +1,108 @@
+name: Sync Libcrypto Binaries from Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release Tag to fetch (e.g. v4.0.2-fips)'
+        required: true
+        default: 'v4.0.2-fips'
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout quadra repository
+        uses: actions/checkout@v4
+
+      - name: Download release assets and checksums
+        run: |
+          mkdir -p /tmp/openssl_download
+          BASE_URL="https://github.com/Michele-TiS/quadra-openssl-build/releases/download/${{ github.event.inputs.tag_name }}"
+
+          curl -sSL "${BASE_URL}/sha256sums.txt" -o /tmp/openssl_download/sha256sums.txt
+
+          ARCHIVES=(
+            "windows_x64.zip"
+            "linux_x64.zip"
+            "linux_arm64.zip"
+            "android_arm64.zip"
+            "macos_arm64.zip"
+            "ios_arm64.zip"
+          )
+
+          for ARCHIVE in "${ARCHIVES[@]}"; do
+            curl -sSL "${BASE_URL}/${ARCHIVE}" -o "/tmp/openssl_download/${ARCHIVE}"
+          done
+
+      - name: Verify SHA256 Checksums
+        working-directory: /tmp/openssl_download
+        run: |
+          sha256sum --check sha256sums.txt
+
+      - name: Extract Target Files into Resources
+        run: |
+          TARGET_BASE="resources/openssl"
+          mkdir -p "$TARGET_BASE"
+
+          declare -A PLATFORM_MAP=(
+            ["windows_x64"]="windows_x64.zip"
+            ["linux_x64"]="linux_x64.zip"
+            ["linux_arm64"]="linux_arm64.zip"
+            ["android_arm64"]="android_arm64.zip"
+            ["macos_arm64"]="macos_arm64.zip"
+            ["ios_arm64"]="ios_arm64.zip"
+          )
+
+          for TARGET_DIR in "${!PLATFORM_MAP[@]}"; do
+            ZIP_FILE="/tmp/openssl_download/${PLATFORM_MAP[$TARGET_DIR]}"
+            DEST="${TARGET_BASE}/${TARGET_DIR}"
+            EXTRACT_TEMP="/tmp/extract_${TARGET_DIR}"
+
+            if [ -f "$ZIP_FILE" ]; then
+              mkdir -p "$EXTRACT_TEMP" "$DEST"
+              unzip -q "$ZIP_FILE" -d "$EXTRACT_TEMP"
+
+              INNER_DIR=$(find "$EXTRACT_TEMP" -mindepth 1 -maxdepth 1 -type d | head -n 1)
+
+              if [ -d "$INNER_DIR/include" ]; then
+                rm -rf "${DEST}/include"
+                cp -r "$INNER_DIR/include" "$DEST/"
+              fi
+
+              find "$INNER_DIR" -type f \( \
+                -name "fips.dll" -o -name "fips.so*" -o -name "fips.dylib" -o -name "fips.a" -o \
+                -name "fipsmodule.cnf" -o \
+                -name "legacy.dll" -o -name "legacy.so*" -o -name "legacy.dylib" -o -name "legacy.a" -o \
+                -name "*libcrypto*.dll" -o -name "libcrypto.so*" -o -name "libcrypto*.dylib" -o -name "libcrypto*.lib" -o -name "libcrypto*.a" -o \
+                -name "openssl.cnf" \
+              \) -exec cp {} "$DEST/" \;
+
+              if [ ! -f "${TARGET_BASE}/LICENSE.txt" ] && [ -f "$INNER_DIR/LICENSE.txt" ]; then
+                cp "$INNER_DIR/LICENSE.txt" "${TARGET_BASE}/LICENSE.txt"
+              fi
+
+              rm -rf "$EXTRACT_TEMP"
+            fi
+          done
+
+          if [ ! -f "${TARGET_BASE}/LICENSE.txt" ]; then
+            curl -sSL "https://raw.githubusercontent.com/openssl/openssl/master/LICENSE.txt" -o "${TARGET_BASE}/LICENSE.txt"
+          fi
+
+          echo "${{ github.event.inputs.tag_name }}" > "${TARGET_BASE}/version.txt"
+
+      - name: Commit and Push Updated Binaries
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add resources/openssl
+          if git status --porcelain | grep -q 'resources/openssl'; then
+            git commit -m "chore(openssl): sync libcrypto native binaries for ${{ github.event.inputs.tag_name }}"
+            git push
+          else
+            echo "No changes detected in resources/openssl."
+          fi
