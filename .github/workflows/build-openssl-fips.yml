@@ -54,7 +54,7 @@ jobs:
       - name: Download Tarball & Verify
         run: |
           curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-          echo "${{ env.OPENSSL_SHA256 }} openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | sha256sum --check
+          echo "${{ env.OPENSSL_SHA256 }}  openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | sha256sum --check
           tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
       - name: Configure, Compile and Install
         working-directory: openssl-${{ env.OPENSSL_VERSION }}
@@ -77,7 +77,7 @@ jobs:
       - name: Download Tarball & Verify
         run: |
           curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-          echo "${{ env.OPENSSL_SHA256 }} openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | sha256sum --check
+          echo "${{ env.OPENSSL_SHA256 }}  openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | sha256sum --check
           tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
       - name: Configure, Compile and Install
         working-directory: openssl-${{ env.OPENSSL_VERSION }}
@@ -102,7 +102,7 @@ jobs:
       - name: Download Tarball & Verify
         run: |
           curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-          echo "${{ env.OPENSSL_SHA256 }} openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | sha256sum --check
+          echo "${{ env.OPENSSL_SHA256 }}  openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | sha256sum --check
           tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
       - name: Configure, Compile and Install (NDK)
         working-directory: openssl-${{ env.OPENSSL_VERSION }}
@@ -128,7 +128,7 @@ jobs:
       - name: Download Tarball & Verify
         run: |
           curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-          echo "${{ env.OPENSSL_SHA256 }} openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | shasum -a 256 -c -
+          echo "${{ env.OPENSSL_SHA256 }}  openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | shasum -a 256 -c -
           tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
       - name: Configure, Compile and Install
         working-directory: openssl-${{ env.OPENSSL_VERSION }}
@@ -149,7 +149,7 @@ jobs:
       - name: Download Tarball & Verify
         run: |
           curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-          echo "${{ env.OPENSSL_SHA256 }} openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | shasum -a 256 -c -
+          echo "${{ env.OPENSSL_SHA256 }}  openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | shasum -a 256 -c -
           tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
       - name: Configure, Compile and Install
         working-directory: openssl-${{ env.OPENSSL_VERSION }}
@@ -173,7 +173,7 @@ jobs:
       - name: Download Tarball & Verify
         run: |
           curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-          echo "${{ env.OPENSSL_SHA256 }} openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | shasum -a 256 -c -
+          echo "${{ env.OPENSSL_SHA256 }}  openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | shasum -a 256 -c -
           tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
       - name: Configure, Compile and Install (Xcode SDK)
         working-directory: openssl-${{ env.OPENSSL_VERSION }}
