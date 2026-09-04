@@ -22,31 +22,23 @@ jobs:
     steps:
       - name: Install NASM
         run: choco install nasm
-      
-      # This action automatically finds and configures the MSVC compiler (nmake, cl)
       - name: Setup MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
-
       - name: Download Official OpenSSL Tarball
         run: Invoke-WebRequest -Uri "https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz" -OutFile "openssl.tar.gz"
-      
       - name: Verify FIPS Chain of Custody (SHA256 Checksum)
         run: |
           $hash = (Get-FileHash "openssl.tar.gz" -Algorithm SHA256).Hash.ToLower()
           if ($hash -ne "${{ env.OPENSSL_SHA256 }}") { Write-Error "FIPS Checksum mismatch!"; exit 1 }
-      
       - name: Extract Source Code
         run: tar -xf openssl.tar.gz
-      
       - name: Configure, Compile and Install (MSVC)
         working-directory: openssl-${{ env.OPENSSL_VERSION }}
-        # Now we don't need to call vcvars64.bat manually!
         run: |
           perl Configure VC-WIN64A shared enable-fips --prefix=${{ github.workspace }}\output_win_x64
           nmake
           nmake install
         shell: cmd
-      
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -115,7 +107,6 @@ jobs:
           tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
       - name: Configure, Compile and Install (NDK)
         working-directory: openssl-${{ env.OPENSSL_VERSION }}
-        # GitHub Runners already have the Android NDK installed and the ANDROID_NDK_HOME variable set
         run: |
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
           ./Configure android-arm64 -D__ANDROID_API__=29 shared enable-fips --prefix=${{ github.workspace }}/output_android_arm64
@@ -128,32 +119,11 @@ jobs:
           path: ${{ github.workspace }}/output_android_arm64/
 
   # ---------------------------------------------------------
-  # 4. MACOS (x64 & ARM64)
+  # 4. MACOS (ARM64)
   # ---------------------------------------------------------
-  build_macos_x64:
-    name: Build macOS x64 (Intel)
-    runs-on: macos-13 # macos-13 uses Intel processors
-    steps:
-      - name: Download Tarball & Verify
-        run: |
-          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-          echo "${{ env.OPENSSL_SHA256 }}  openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | shasum -a 256 -c -
-          tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-      - name: Configure, Compile and Install
-        working-directory: openssl-${{ env.OPENSSL_VERSION }}
-        run: |
-          ./Configure darwin64-x86_64-cc shared enable-fips --prefix=${{ github.workspace }}/output_macos_x64
-          make -j$(sysctl -n hw.logicalcpu)
-          make install
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos_x64
-          path: ${{ github.workspace }}/output_macos_x64/
-
   build_macos_arm64:
     name: Build macOS ARM64 (Apple Silicon)
-    runs-on: macos-latest # macos-latest (macos-14+) uses Apple Silicon processors
+    runs-on: macos-latest
     steps:
       - name: Download Tarball & Verify
         run: |
@@ -201,8 +171,7 @@ jobs:
   # ---------------------------------------------------------
   publish_release:
     name: Create Release & Generate Hashes
-    # Wait for ALL build jobs to complete successfully
-    needs: [build_windows_x64, build_linux_x64, build_linux_arm64, build_android_arm64, build_macos_x64, build_macos_arm64, build_ios_arm64]
+    needs: [build_windows_x64, build_linux_x64, build_linux_arm64, build_android_arm64, build_macos_arm64, build_ios_arm64]
     runs-on: ubuntu-latest
     steps:
       - name: Download All Artifacts
@@ -217,15 +186,10 @@ jobs:
           echo "Cryptographic hashes for OpenSSL ${{ env.OPENSSL_VERSION }} native binaries:" > sha256sums.txt
           echo "==========================================================================" >> sha256sums.txt
           
-          # Iterate through all downloaded artifact directories
           for dir in */; do
             platform=${dir%/}
             echo "Packaging $platform..."
-            
-            # Create a zip archive for the platform
             zip -r "${platform}.zip" "$platform"
-            
-            # Calculate SHA256 and append to the checksum file
             sha256sum "${platform}.zip" >> sha256sums.txt
           done
 
