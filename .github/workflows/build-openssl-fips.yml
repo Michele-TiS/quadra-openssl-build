@@ -1,21 +1,20 @@
-# .github/workflows/build-openssl-fips.yml
-
 name: Build FIPS-Compliant OpenSSL Binaries (All Platforms)
 
 on:
   workflow_dispatch:
+    inputs:
+      openssl_version:
+        description: 'OpenSSL Version (e.g., 4.0.2)'
+        required: true
+        default: '4.0.0'
+      openssl_sha256:
+        description: 'Expected SHA256 of the source tarball'
+        required: true
 
 permissions:
   contents: write
 
-env:
-  OPENSSL_VERSION: "4.0.2" 
-  OPENSSL_SHA256: "736b467530f916737b7031310ccb21d8218c6229e61e8e160cd1d3458cd543a8"
-
 jobs:
-  # ---------------------------------------------------------
-  # 1. WINDOWS (x64)
-  # ---------------------------------------------------------
   build_windows_x64:
     name: Build Windows x64
     runs-on: windows-latest
@@ -25,20 +24,19 @@ jobs:
       - name: Setup MSVC Developer Command Prompt
         uses: ilammy/msvc-dev-cmd@v1
       - name: Download Official OpenSSL Tarball
-        run: Invoke-WebRequest -Uri "https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz" -OutFile "openssl.tar.gz"
+        run: Invoke-WebRequest -Uri "https://github.com/openssl/openssl/releases/download/openssl-${{ inputs.openssl_version }}/openssl-${{ inputs.openssl_version }}.tar.gz" -OutFile "openssl.tar.gz"
       - name: Verify FIPS Chain of Custody (SHA256 Checksum)
         run: |
           $hash = (Get-FileHash "openssl.tar.gz" -Algorithm SHA256).Hash.ToLower()
-          if ($hash -ne "${{ env.OPENSSL_SHA256 }}") { Write-Error "FIPS Checksum mismatch!"; exit 1 }
+          if ($hash -ne "${{ inputs.openssl_sha256 }}") { Write-Error "FIPS Checksum mismatch!"; exit 1 }
       - name: Extract Source Code
         run: tar -xf openssl.tar.gz
       - name: Configure, Compile and Install (MSVC)
-        working-directory: openssl-${{ env.OPENSSL_VERSION }}
+        working-directory: openssl-${{ inputs.openssl_version }}
         run: |
-          perl Configure VC-WIN64A shared enable-fips --prefix=${{ github.workspace }}\output_win_x64
-          # /MP tells MSVC to use all available CPU cores concurrently
-          # CL="/MP" nmake runs the compiler in parallel
-          nmake /M CL="/MP"
+          perl Configure VC-WIN64A shared enable-fips --prefix=${{ github.workspace }}\output_win_x64 --openssldir=${{ github.workspace }}\output_win_x64\ssl
+          set CL=/MP
+          nmake
           nmake install
         shell: cmd
       - name: Upload Artifact
@@ -47,20 +45,17 @@ jobs:
           name: windows_x64
           path: ${{ github.workspace }}\output_win_x64\
 
-  # ---------------------------------------------------------
-  # 2. LINUX (x64 & ARM64)
-  # ---------------------------------------------------------
   build_linux_x64:
     name: Build Linux x64
     runs-on: ubuntu-latest
     steps:
       - name: Download Tarball & Verify
         run: |
-          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-          echo "${{ env.OPENSSL_SHA256 }}  openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | sha256sum --check
-          tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
+          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ inputs.openssl_version }}/openssl-${{ inputs.openssl_version }}.tar.gz
+          echo "${{ inputs.openssl_sha256 }}  openssl-${{ inputs.openssl_version }}.tar.gz" | sha256sum --check
+          tar -xf openssl-${{ inputs.openssl_version }}.tar.gz
       - name: Configure, Compile and Install
-        working-directory: openssl-${{ env.OPENSSL_VERSION }}
+        working-directory: openssl-${{ inputs.openssl_version }}
         run: |
           ./Configure linux-x86_64 shared enable-fips --prefix=${{ github.workspace }}/output_linux_x64
           make -j$(nproc)
@@ -79,11 +74,11 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
       - name: Download Tarball & Verify
         run: |
-          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-          echo "${{ env.OPENSSL_SHA256 }}  openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | sha256sum --check
-          tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
+          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ inputs.openssl_version }}/openssl-${{ inputs.openssl_version }}.tar.gz
+          echo "${{ inputs.openssl_sha256 }}  openssl-${{ inputs.openssl_version }}.tar.gz" | sha256sum --check
+          tar -xf openssl-${{ inputs.openssl_version }}.tar.gz
       - name: Configure, Compile and Install
-        working-directory: openssl-${{ env.OPENSSL_VERSION }}
+        working-directory: openssl-${{ inputs.openssl_version }}
         run: |
           export CROSS_COMPILE=aarch64-linux-gnu-
           ./Configure linux-aarch64 shared enable-fips --prefix=${{ github.workspace }}/output_linux_arm64
@@ -95,20 +90,17 @@ jobs:
           name: linux_arm64
           path: ${{ github.workspace }}/output_linux_arm64/
 
-  # ---------------------------------------------------------
-  # 3. ANDROID (ARM64)
-  # ---------------------------------------------------------
   build_android_arm64:
     name: Build Android ARM64
     runs-on: ubuntu-latest
     steps:
       - name: Download Tarball & Verify
         run: |
-          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-          echo "${{ env.OPENSSL_SHA256 }}  openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | sha256sum --check
-          tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
+          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ inputs.openssl_version }}/openssl-${{ inputs.openssl_version }}.tar.gz
+          echo "${{ inputs.openssl_sha256 }}  openssl-${{ inputs.openssl_version }}.tar.gz" | sha256sum --check
+          tar -xf openssl-${{ inputs.openssl_version }}.tar.gz
       - name: Configure, Compile and Install (NDK)
-        working-directory: openssl-${{ env.OPENSSL_VERSION }}
+        working-directory: openssl-${{ inputs.openssl_version }}
         run: |
           export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
           ./Configure android-arm64 -D__ANDROID_API__=29 shared enable-fips --prefix=${{ github.workspace }}/output_android_arm64
@@ -120,20 +112,17 @@ jobs:
           name: android_arm64
           path: ${{ github.workspace }}/output_android_arm64/
 
-  # ---------------------------------------------------------
-  # 4. MACOS (ARM64)
-  # ---------------------------------------------------------
   build_macos_arm64:
     name: Build macOS ARM64 (Apple Silicon)
     runs-on: macos-latest
     steps:
       - name: Download Tarball & Verify
         run: |
-          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-          echo "${{ env.OPENSSL_SHA256 }}  openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | shasum -a 256 -c -
-          tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
+          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ inputs.openssl_version }}/openssl-${{ inputs.openssl_version }}.tar.gz
+          echo "${{ inputs.openssl_sha256 }}  openssl-${{ inputs.openssl_version }}.tar.gz" | shasum -a 256 -c -
+          tar -xf openssl-${{ inputs.openssl_version }}.tar.gz
       - name: Configure, Compile and Install
-        working-directory: openssl-${{ env.OPENSSL_VERSION }}
+        working-directory: openssl-${{ inputs.openssl_version }}
         run: |
           ./Configure darwin64-arm64-cc shared enable-fips --prefix=${{ github.workspace }}/output_macos_arm64
           make -j$(sysctl -n hw.logicalcpu)
@@ -144,20 +133,17 @@ jobs:
           name: macos_arm64
           path: ${{ github.workspace }}/output_macos_arm64/
 
-  # ---------------------------------------------------------
-  # 5. IOS (ARM64)
-  # ---------------------------------------------------------
   build_ios_arm64:
     name: Build iOS ARM64
     runs-on: macos-latest
     steps:
       - name: Download Tarball & Verify
         run: |
-          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ env.OPENSSL_VERSION }}/openssl-${{ env.OPENSSL_VERSION }}.tar.gz
-          echo "${{ env.OPENSSL_SHA256 }}  openssl-${{ env.OPENSSL_VERSION }}.tar.gz" | shasum -a 256 -c -
-          tar -xf openssl-${{ env.OPENSSL_VERSION }}.tar.gz
+          curl -LO https://github.com/openssl/openssl/releases/download/openssl-${{ inputs.openssl_version }}/openssl-${{ inputs.openssl_version }}.tar.gz
+          echo "${{ inputs.openssl_sha256 }}  openssl-${{ inputs.openssl_version }}.tar.gz" | shasum -a 256 -c -
+          tar -xf openssl-${{ inputs.openssl_version }}.tar.gz
       - name: Configure, Compile and Install (Xcode SDK)
-        working-directory: openssl-${{ env.OPENSSL_VERSION }}
+        working-directory: openssl-${{ inputs.openssl_version }}
         run: |
           ./Configure ios64-xcrun shared enable-fips --prefix=${{ github.workspace }}/output_ios_arm64
           make -j$(sysctl -n hw.logicalcpu)
@@ -168,9 +154,6 @@ jobs:
           name: ios_arm64
           path: ${{ github.workspace }}/output_ios_arm64/
 
-  # ---------------------------------------------------------
-  # 6. PACKAGE, HASH & RELEASE
-  # ---------------------------------------------------------
   publish_release:
     name: Create Release & Generate Hashes
     needs: [build_windows_x64, build_linux_x64, build_linux_arm64, build_android_arm64, build_macos_arm64, build_ios_arm64]
@@ -185,12 +168,8 @@ jobs:
         working-directory: artifacts
         run: |
           touch sha256sums.txt
-          echo "Cryptographic hashes for OpenSSL ${{ env.OPENSSL_VERSION }} native binaries:" > sha256sums.txt
-          echo "==========================================================================" >> sha256sums.txt
-          
           for dir in */; do
             platform=${dir%/}
-            echo "Packaging $platform..."
             zip -r "${platform}.zip" "$platform"
             sha256sum "${platform}.zip" >> sha256sums.txt
           done
@@ -198,10 +177,10 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v${{ env.OPENSSL_VERSION }}-fips"
-          name: "OpenSSL ${{ env.OPENSSL_VERSION }} (FIPS Native Binaries)"
+          tag_name: "v${{ inputs.openssl_version }}-fips"
+          name: "OpenSSL ${{ inputs.openssl_version }} (FIPS Native Binaries)"
           body: |
-            Automated FIPS 140-3 compliant build for OpenSSL ${{ env.OPENSSL_VERSION }}.
+            Automated FIPS 140-3 compliant build for OpenSSL ${{ inputs.openssl_version }}.
             
             Compiled entirely on isolated GitHub Actions runners using official source code.
             Please verify the integrity of the downloaded zip files using the attached `sha256sums.txt`.
