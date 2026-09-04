@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       openssl_version:
-        description: 'OpenSSL Version (e.g., 4.0.2)'
+        description: 'OpenSSL Version (e.g., 4.0.0)'
         required: true
         default: '4.0.0'
       openssl_sha256:
