@@ -36,7 +36,9 @@ jobs:
         working-directory: openssl-${{ env.OPENSSL_VERSION }}
         run: |
           perl Configure VC-WIN64A shared enable-fips --prefix=${{ github.workspace }}\output_win_x64
-          nmake
+          # /MP tells MSVC to use all available CPU cores concurrently
+          # CL="/MP" nmake runs the compiler in parallel
+          nmake /M CL="/MP"
           nmake install
         shell: cmd
       - name: Upload Artifact
